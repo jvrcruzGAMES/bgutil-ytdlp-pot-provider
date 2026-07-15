@@ -160,17 +160,21 @@ if HAS_WEBKIT:
             self._try_init_factory()
 
         def _real_request_pot(self, request: PoTokenRequest) -> PoTokenResponse:
-            self.logger.info('Generating a player PO Token via Apple WebKit JSI')
+            self.logger.info(
+                f'Generating a {request.context.value} PO Token for '
+                f'{request.internal_client_name} client via bgutil:webkit (Apple WebKit JSI)'
+            )
             
             # 1. Get the lazily initialized webview instance
             webview = self._get_webview_lazy()
             
             # 2. Establish cookies and origin context by navigating to youtube.com
-            self.logger.trace('Navigating webview to youtube.com')
+            self.logger.info('Navigating hidden WebKit webview to youtube.com to establish origin context...')
             webview.navigate_to('https://www.youtube.com/', '<!DOCTYPE html><html><head></head><body></body></html>')
             
             # 3. Retrieve the content binding parameter
             content_binding = get_webpo_content_binding(request)[0]
+            self.logger.info(f'Content binding used: {content_binding}')
             
             # 4. Wrap JS solver function inside the execution script
             js_code = f"""
@@ -180,13 +184,14 @@ if HAS_WEBKIT:
             
             # 5. Run the challenge solver inside WebKit and return the result
             try:
-                self.logger.trace('Executing BotGuard solver inside WebKit webview')
+                self.logger.info('Executing client-side BotGuard challenge solver inside WebKit...')
                 po_token = webview.execute_js(js_code)
                 if not po_token:
                     raise PoTokenProviderError('WebKit returned an empty PO Token')
-                self.logger.trace(f'Generated POT: {po_token}')
+                self.logger.info(f'Successfully generated PO Token via WebKit: {po_token[:15]}... ({len(po_token)} chars)')
                 return PoTokenResponse(po_token=po_token)
             except Exception as e:
+                self.logger.error(f'WebKit POT generation failed: {e!r}')
                 raise PoTokenProviderError(f'Failed to generate POT in WebKit (caused by {e!r})') from e
 
 
