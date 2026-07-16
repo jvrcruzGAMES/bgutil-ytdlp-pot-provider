@@ -23,7 +23,10 @@ except ImportError:
 JAVASCRIPT_SOLVER = r"""
 async function getPoToken(contentBinding) {
     // 1. Fetch challenge from InnerTube API /att/get
-    const attGetResponse = await fetch("https://www.youtube.com/youtubei/v1/att/get?prettyPrint=false", {
+    const origin = window.location.origin && window.location.origin.includes("youtube.com")
+        ? window.location.origin
+        : "https://www.youtube.com";
+    const attGetResponse = await fetch(origin + "/youtubei/v1/att/get?prettyPrint=false", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
