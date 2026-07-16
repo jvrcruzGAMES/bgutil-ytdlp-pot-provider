@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 
 from yt_dlp.extractor.youtube.pot.provider import (
+    PoTokenContext,
     PoTokenProvider,
     PoTokenProviderError,
     PoTokenRequest,
@@ -9,7 +10,7 @@ from yt_dlp.extractor.youtube.pot.provider import (
     register_preference,
     register_provider,
 )
-from yt_dlp.extractor.youtube.pot.utils import get_webpo_content_binding
+from yt_dlp.extractor.youtube.pot.utils import get_webpo_content_binding, WEBPO_CLIENTS
 
 try:
     from yt_dlp_plugins.extractor.webkit_jsi import AppleWebKitMixin
@@ -154,6 +155,12 @@ if HAS_WEBKIT:
     @register_provider
     class BgUtilWebKitPTP(AppleWebKitMixin, PoTokenProvider):
         PROVIDER_NAME = 'bgutil:webkit'
+        _SUPPORTED_CLIENTS = WEBPO_CLIENTS
+        _SUPPORTED_CONTEXTS = (
+            PoTokenContext.GVS,
+            PoTokenContext.PLAYER,
+            PoTokenContext.SUBS,
+        )
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -170,7 +177,7 @@ if HAS_WEBKIT:
             
             # 2. Establish cookies and origin context by navigating to youtube.com
             self.logger.info('Navigating hidden WebKit webview to youtube.com to establish origin context...')
-            webview.navigate_to('https://www.youtube.com/', '<!DOCTYPE html><html><head></head><body></body></html>')
+            webview.navigate_to('https://www.youtube.com/', '__REMOTE__')
             
             # 3. Retrieve the content binding parameter
             content_binding = get_webpo_content_binding(request)[0]
