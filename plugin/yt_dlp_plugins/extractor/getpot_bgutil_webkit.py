@@ -22,25 +22,30 @@ except ImportError:
 # Self-contained browser-compatible JS solver logic
 JAVASCRIPT_SOLVER = r"""
 async function getPoToken(contentBinding) {
-    // 1. Fetch challenge from InnerTube API /att/get
-    const origin = window.location.origin && window.location.origin.includes("youtube.com")
-        ? window.location.origin
-        : "https://www.youtube.com";
-    const attGetResponse = await fetch(origin + "/youtubei/v1/att/get?prettyPrint=false", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            context: {
-                client: {
-                    clientName: "WEB",
-                    clientVersion: "2.20260227.01.00",
-                },
+    let attGetResponse;
+    try {
+        const origin = window.location.origin && window.location.origin.includes("youtube.com")
+            ? window.location.origin
+            : "https://www.youtube.com";
+        const url = origin + "/youtubei/v1/att/get?prettyPrint=false";
+        attGetResponse = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
             },
-            engagementType: "ENGAGEMENT_TYPE_UNBOUND",
-        }),
-    });
+            body: JSON.stringify({
+                context: {
+                    client: {
+                        clientName: "WEB",
+                        clientVersion: "2.20260227.01.00",
+                    },
+                },
+                engagementType: "ENGAGEMENT_TYPE_UNBOUND",
+            }),
+        });
+    } catch (e) {
+        throw new Error("Fetch /att/get failed: " + e.message + " | Location: " + window.location.href + " | Origin: " + window.location.origin);
+    }
     if (!attGetResponse.ok) {
         throw new Error("Failed to fetch attestation challenge: " + attGetResponse.status);
     }
