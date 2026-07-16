@@ -12,7 +12,7 @@ from yt_dlp.extractor.youtube.pot.provider import (
 from yt_dlp.extractor.youtube.pot.utils import get_webpo_content_binding
 
 try:
-    from .webkit_jsi import AppleWebKitMixin
+    from yt_dlp_plugins.extractor.webkit_jsi import AppleWebKitMixin
     HAS_WEBKIT = True
 except ImportError:
     HAS_WEBKIT = False
