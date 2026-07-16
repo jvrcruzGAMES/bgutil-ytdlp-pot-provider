@@ -180,24 +180,59 @@ if HAS_WEBKIT:
                 f'{request.internal_client_name} client via bgutil:webkit (Apple WebKit JSI)'
             )
             
-            # 1. Get the lazily initialized webview instance
-            webview = self._get_webview_lazy()
-            
-            # 2. Establish cookies and origin context by navigating to youtube.com
-            self.logger.info('Navigating hidden WebKit webview to youtube.com to establish origin context...')
-            webview.navigate_to('https://www.youtube.com/', '__REMOTE__')
-            
-            # 3. Retrieve the content binding parameter
             content_binding = get_webpo_content_binding(request)[0]
             self.logger.info(f'Content binding used: {content_binding}')
             
-            # 4. Wrap JS solver function inside the execution script
+            # 1. Try Native C-decl call first (native-side WKWebView solver)
+            try:
+                self.logger.info('Attempting native-side WKWebView POT generation...')
+                import ctypes
+                lib = ctypes.CDLL(None)
+                generate_pot_fn = getattr(lib, "ytdlp_kit_generate_pot", None)
+                if generate_pot_fn is not None:
+                    generate_pot_fn.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p)]
+                    generate_pot_fn.restype = ctypes.c_int32
+                    
+                    result_out = ctypes.c_char_p()
+                    status = generate_pot_fn(content_binding.encode('utf-8'), ctypes.byref(result_out))
+                    
+                    result_str = result_out.value
+                    if result_str is not None:
+                        result_str = result_str.decode('utf-8')
+                        
+                    # Free strdup'd string
+                    try:
+                        lib.free(result_out)
+                    except Exception:
+                        pass
+                        
+                    if status == 0:
+                        self.logger.info(f'Successfully generated PO Token via native WebKit: {result_str[:15]}... ({len(result_str)} chars)')
+                        return PoTokenResponse(po_token=result_str)
+                    else:
+                        raise PoTokenProviderError(f'Native WebKit POT generation failed: {result_str}')
+                else:
+                    self.logger.info('Native ytdlp_kit_generate_pot symbol not found, falling back to Python JSI WebView')
+            except Exception as e:
+                if isinstance(e, PoTokenProviderError):
+                    raise
+                self.logger.info(f'Native implementation bypass/fallback due to error: {e!r}')
+
+            # 2. Fall back to the JSI browser context
+            # Get the lazily initialized webview instance
+            webview = self._get_webview_lazy()
+            
+            # Establish cookies and origin context by navigating to youtube.com
+            self.logger.info('Navigating hidden WebKit webview to youtube.com to establish origin context...')
+            webview.navigate_to('https://www.youtube.com/', '__REMOTE__')
+            
+            # Wrap JS solver function inside the execution script
             js_code = f"""
             {JAVASCRIPT_SOLVER}
             return await getPoToken({json.dumps(content_binding)});
             """
             
-            # 5. Run the challenge solver inside WebKit and return the result
+            # Run the challenge solver inside WebKit and return the result
             try:
                 self.logger.info('Executing client-side BotGuard challenge solver inside WebKit...')
                 po_token = webview.execute_js(js_code)
